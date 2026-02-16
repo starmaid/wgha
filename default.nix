@@ -4,7 +4,6 @@ pkgs.mkShell {
   buildInputs = with pkgs; [
     (pkgs.python3.withPackages (python-pkgs: [
       python-pkgs.requests
-      python-pkgs.websocket-client
     ]))
   ];
 }

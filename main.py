@@ -2,7 +2,6 @@ from subprocess import Popen, PIPE
 import configparser
 import json
 import time
-import sys
 import requests
 
 cparser = configparser.ConfigParser()
