@@ -6,13 +6,17 @@ import requests
 
 cparser = configparser.ConfigParser()
 
-COMMAND_PREFIX = "sudo docker exec wireguard".split(" ")
+COMMAND_PREFIX = "docker exec wireguard".split(" ")
 
 # Home Assistant API details
 baseurl = "http://192.168.0.97:8123/api"
 # Load Home Assistant token from external file
-import os
-TOKEN_FILE = os.path.join(os.path.dirname(__file__), "ha_token.key")
+
+import sys
+if len(sys.argv) < 2:
+    print("Usage: python main.py <TOKEN_FILE>")
+    exit(1)
+TOKEN_FILE = sys.argv[1]
 with open(TOKEN_FILE, "r") as f:
     token = f.read().strip()
 
@@ -121,27 +125,28 @@ def map_names_to_allowed_ips(clients, connections):
         }
     return result
 
+
 if __name__ == "__main__":
     p = getKnownClients()
     d = getConnectionInto()
     mapping = map_names_to_allowed_ips(p, d)
 
     connected = {}
-    for peer,details in mapping.items():
+    for peer, details in mapping.items():
         result = False
         if "latestHandshake" in details['connection'].keys():
             if time.time() - details['connection']["latestHandshake"] < 10*60:
                 result = True
 
         connected[peer] = result
-    
-    print(json.dumps(connected,indent="  "))
 
-    for name,value in connected.items():
+    print(json.dumps(connected, indent="  "))
+
+    for name, value in connected.items():
         action = "turn_off"
         if value:
             action = "turn_on"
-        
+
         data = {
             "entity_id": f"input_boolean.{name}",
         }
