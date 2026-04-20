@@ -24,7 +24,7 @@ wgha --config /path/to/config.ini /path/to/ha_token.key
 Add this flake as an input to your `flake.nix`:
 
 ```nix
-inputs.wgha.url = "/path/to/wg-ha"; # or github:youruser/wg-ha
+inputs.wgha.url = "github:starmaid/wg-ha"
 ```
 
 Then in your `nixosConfiguration`:

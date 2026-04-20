@@ -39,6 +39,11 @@
                 default = "hourly";
                 description = "systemd timer schedule (OnCalendar value)";
               };
+              baseurl = mkOption {
+                type = types.str;
+                default = "";
+                description = "Base URL of Homeassistant instance";
+              };
               configText = mkOption {
                 type = types.str;
                 default = "";
@@ -55,7 +60,7 @@
                 serviceConfig = {
                   Type = "oneshot";
                   ExecStart = ''
-                    ${wgha}/bin/wgha --config /etc/wgha/config.ini ${config.services.wgha.tokenFile}
+                    ${wgha}/bin/wgha --config /etc/wgha/config.ini --baseurl ${config.services.wgha.baseurl} ${config.services.wgha.tokenFile}
                   '';
                 };
                 environment = { };
