@@ -8,7 +8,7 @@ WireGuard-HomeAssistant updater packaged as a Python package, with Nix and NixOS
 ### Build and Run Manually
 
 ```bash
-nix build .#wgha
+nix build ./wgha
 ./result/bin/wgha --config /path/to/config.ini /path/to/ha_token.key
 ```
 

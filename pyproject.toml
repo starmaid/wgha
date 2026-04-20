@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wgha"
+version = "1.0"
+dependencies = [
+    "requests"
+]
+description = "WireGuard-HomeAssistant updater"
+readme = "README.md"
+requires-python = ">=3.7"
+
+[project.scripts]
+wgha = "wgha.__main__:main"

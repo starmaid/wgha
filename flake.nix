@@ -13,15 +13,23 @@
           pname = "wgha";
           version = "1.0";
           src = ./.;
-          format = "setuptools";
+          format = "pyproject";
+          nativeBuildInputs = [ python.pkgs.setuptools ];
           propagatedBuildInputs = [ python.pkgs.requests ];
           doCheck = false;
         };
-      in {
+      in
+      {
         packages.default = wgha;
         devShells.default = pkgs.mkShell {
-          buildInputs = [ wgha python.pkgs.ruff python.pkgs.setuptools ];
+          buildInputs = [
+            wgha 
+            pkgs.nixpkgs-fmt
+            python.pkgs.ruff
+            python.pkgs.setuptools
+          ];
         };
+
         nixosModules.wgha = { config, lib, pkgs, ... }:
           with lib; {
             options.services.wgha = {
@@ -50,7 +58,7 @@
                     ${wgha}/bin/wgha --config /etc/wgha/config.ini ${config.services.wgha.tokenFile}
                   '';
                 };
-                environment = {};
+                environment = { };
                 wantedBy = [ "multi-user.target" ];
               };
               systemd.timers.wgha = {
