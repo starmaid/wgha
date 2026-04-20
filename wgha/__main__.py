@@ -191,8 +191,7 @@ def map_names_to_allowed_ips(clients, connections):
         }
     return result
 
-
-if __name__ == "__main__":
+def main():
     logging.info("Starting WireGuard-HomeAssistant status update.")
     p = getKnownClients()
     d = getConnectionInto()
