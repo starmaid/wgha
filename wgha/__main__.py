@@ -14,6 +14,7 @@ cparser = configparser.ConfigParser()
 
 COMMAND_PREFIX = "docker exec wireguard".split(" ")
 
+
 def load_config(config_path):
     if not config_path or not os.path.exists(config_path):
         return {}
@@ -23,6 +24,7 @@ def load_config(config_path):
     # Flatten to dict
     return {k: dict(v) for k, v in parser.items()}
 
+
 # Argument parsing for logfile, token file, baseurl, and config
 parser = ArgumentParser(
     description="Update Home Assistant with WireGuard connection status."
@@ -31,7 +33,7 @@ parser.add_argument("token_file", help="Path to Home Assistant token file")
 parser.add_argument(
     "--baseurl",
     default=None,
-    help="Home Assistant API base URL (default: http://192.168.0.97:8123/api or config file)",
+    help="Home Assistant API base URL",
 )
 parser.add_argument(
     "--logfile", default="wgha.log", help="Log file path (default: wgha.log)"
@@ -82,11 +84,13 @@ headers = {
     "Content-Type": "application/json",
 }
 
+
 def remoteExec(params):
     process = Popen(COMMAND_PREFIX + params, stdout=PIPE)
     (output, err) = process.communicate()
     exit_code = process.wait()
     return output.decode()
+
 
 def getKnownClients():
     directories = remoteExec(["ls", "/config"]).split("\n")
@@ -102,6 +106,7 @@ def getKnownClients():
         conf_item = {"name": n, "address": cparser["Interface"]["Address"]}
         peer_details.append(conf_item)
     return peer_details
+
 
 def getConnectionInto():
     details = remoteExec(["wg", "show", "all", "dump"]).strip().split("\n")
@@ -164,6 +169,7 @@ def getConnectionInto():
             i += 1
     return result
 
+
 def map_names_to_allowed_ips(clients, connections):
     def base(ip):
         return ip.split("/")[0] if ip else ip
@@ -184,6 +190,7 @@ def map_names_to_allowed_ips(clients, connections):
             "connection": ip_map[peer["address"]],
         }
     return result
+
 
 if __name__ == "__main__":
     logging.info("Starting WireGuard-HomeAssistant status update.")
