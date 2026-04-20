@@ -57,6 +57,7 @@
             config = mkIf config.services.wgha.enable {
               systemd.services.wgha = {
                 description = "WireGuard-HomeAssistant updater";
+                path = [ pkgs.docker ];
                 serviceConfig = {
                   Type = "oneshot";
                   ExecStart = ''
