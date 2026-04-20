@@ -1,13 +1,14 @@
-from setuptools import setup
+
+from setuptools import setup, find_packages
 
 setup(
     name="wgha",
     version="1.0",
-    py_modules=["main"],
+    packages=find_packages(),
     install_requires=["requests"],
     entry_points={
         "console_scripts": [
-            "wgha=main:main"
+            "wgha=wgha.__main__"
         ]
     },
 )

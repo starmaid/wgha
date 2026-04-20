@@ -1,24 +1,81 @@
+#!/usr/bin/env python3
+
 from subprocess import Popen, PIPE
+from argparse import ArgumentParser
 import configparser
 import json
-import time
+import logging
+import os
 import requests
+import sys
+import time
 
 cparser = configparser.ConfigParser()
 
 COMMAND_PREFIX = "docker exec wireguard".split(" ")
 
-# Home Assistant API details
-baseurl = "http://192.168.0.97:8123/api"
-# Load Home Assistant token from external file
+def load_config(config_path):
+    if not config_path or not os.path.exists(config_path):
+        return {}
+    # Only support INI
+    parser = configparser.ConfigParser()
+    parser.read(config_path)
+    # Flatten to dict
+    return {k: dict(v) for k, v in parser.items()}
 
-import sys
-if len(sys.argv) < 2:
-    print("Usage: python main.py <TOKEN_FILE>")
-    exit(1)
-TOKEN_FILE = sys.argv[1]
-with open(TOKEN_FILE, "r") as f:
-    token = f.read().strip()
+# Argument parsing for logfile, token file, baseurl, and config
+parser = ArgumentParser(
+    description="Update Home Assistant with WireGuard connection status."
+)
+parser.add_argument("token_file", help="Path to Home Assistant token file")
+parser.add_argument(
+    "--baseurl",
+    default=None,
+    help="Home Assistant API base URL (default: http://192.168.0.97:8123/api or config file)",
+)
+parser.add_argument(
+    "--logfile", default="wgha.log", help="Log file path (default: wgha.log)"
+)
+parser.add_argument(
+    "--config", default=None, help="Optional config file (INI) for persistent settings"
+)
+args = parser.parse_args()
+
+# Set up logging
+logging.basicConfig(
+    filename=args.logfile,
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s: %(message)s",
+)
+
+# Load config file if provided
+config = {}
+if args.config:
+    try:
+        config = load_config(args.config)
+        logging.info(f"Loaded config from {args.config}")
+    except Exception as e:
+        logging.error(f"Failed to load config file {args.config}: {e}")
+        sys.exit(1)
+
+# Determine baseurl (priority: CLI > config > default)
+baseurl = args.baseurl or config.get("baseurl")
+if not baseurl:
+    logging.error(
+        "Home Assistant baseurl must be provided via --baseurl or config file."
+    )
+    sys.exit(1)
+
+TOKEN_FILE = args.token_file
+if not os.path.exists(TOKEN_FILE):
+    logging.error(f"Token file does not exist: {TOKEN_FILE}")
+    sys.exit(1)
+try:
+    with open(TOKEN_FILE, "r") as f:
+        token = f.read().strip()
+except Exception as e:
+    logging.error(f"Failed to read token file {TOKEN_FILE}: {e}")
+    sys.exit(1)
 
 headers = {
     "Authorization": f"Bearer {token}",
@@ -29,8 +86,7 @@ def remoteExec(params):
     process = Popen(COMMAND_PREFIX + params, stdout=PIPE)
     (output, err) = process.communicate()
     exit_code = process.wait()
-    return(output.decode())
-
+    return output.decode()
 
 def getKnownClients():
     directories = remoteExec(["ls", "/config"]).split("\n")
@@ -41,14 +97,11 @@ def getKnownClients():
 
     for n in peer_names:
         confstring = remoteExec(["cat", f"/config/{n}/{n}.conf"])
-        #print(confstring)
+        # print(confstring)
         cparser.read_string(confstring)
-        conf_item = {
-            "name": n,
-            "address": cparser["Interface"]["Address"]
-        }
+        conf_item = {"name": n, "address": cparser["Interface"]["Address"]}
         peer_details.append(conf_item)
-    return(peer_details)
+    return peer_details
 
 def getConnectionInto():
     details = remoteExec(["wg", "show", "all", "dump"]).strip().split("\n")
@@ -56,14 +109,12 @@ def getConnectionInto():
         return {}
 
     result = {}
-    last_device = None
     i = 0
     while i < len(details):
-        fields = details[i].split('\t')
+        fields = details[i].split("\t")
         if len(fields) == 5:
             # Device line: device, private_key, public_key, listen_port, fwmark
             device, private_key, public_key, listen_port, fwmark = fields
-            last_device = device
             result[device] = {}
             if private_key != "(none)":
                 result[device]["privateKey"] = private_key
@@ -77,7 +128,17 @@ def getConnectionInto():
             i += 1
         elif len(fields) == 9:
             # Peer line
-            device, public_key, preshared_key, endpoint, allowed_ips, latest_handshake, transfer_rx, transfer_tx, persistent_keepalive = fields
+            (
+                device,
+                public_key,
+                preshared_key,
+                endpoint,
+                allowed_ips,
+                latest_handshake,
+                transfer_rx,
+                transfer_tx,
+                persistent_keepalive,
+            ) = fields
             peer = {}
             if preshared_key != "(none)":
                 peer["presharedKey"] = preshared_key
@@ -96,37 +157,36 @@ def getConnectionInto():
                 peer["allowedIps"] = [ip for ip in allowed_ips.split(",") if ip]
             else:
                 peer["allowedIps"] = []
-            
+
             result[device]["peers"][public_key] = peer
             i += 1
         else:
             i += 1
     return result
 
-
 def map_names_to_allowed_ips(clients, connections):
     def base(ip):
-        return ip.split('/')[0] if ip else ip
+        return ip.split("/")[0] if ip else ip
 
     ip_map = {}
     for device, info in connections.items():
         for pubkey, peer in info.get("peers", {}).items():
             for allowed in peer.get("allowedIps", []):
                 ip_map[base(allowed)] = peer
-    
+
     result = {}
     for peer in clients:
-        if peer['address'] not in ip_map.keys():
+        if peer["address"] not in ip_map.keys():
             continue
 
         result[peer["name"]] = {
             "address": peer["address"],
-            "connection": ip_map[peer["address"]]
+            "connection": ip_map[peer["address"]],
         }
     return result
 
-
 if __name__ == "__main__":
+    logging.info("Starting WireGuard-HomeAssistant status update.")
     p = getKnownClients()
     d = getConnectionInto()
     mapping = map_names_to_allowed_ips(p, d)
@@ -134,13 +194,12 @@ if __name__ == "__main__":
     connected = {}
     for peer, details in mapping.items():
         result = False
-        if "latestHandshake" in details['connection'].keys():
-            if time.time() - details['connection']["latestHandshake"] < 10*60:
+        if "latestHandshake" in details["connection"].keys():
+            if time.time() - details["connection"]["latestHandshake"] < 10 * 60:
                 result = True
-
         connected[peer] = result
 
-    print(json.dumps(connected, indent="  "))
+    logging.info("Connection status: %s", json.dumps(connected, indent=2))
 
     for name, value in connected.items():
         action = "turn_off"
@@ -151,9 +210,13 @@ if __name__ == "__main__":
             "entity_id": f"input_boolean.{name}",
         }
 
-        response = requests.post(f"{baseurl}/services/input_boolean/{action}", headers=headers, json=data)
-        print(response.content)
-
+        try:
+            response = requests.post(
+                f"{baseurl}/services/input_boolean/{action}", headers=headers, json=data
+            )
+            logging.info(f"Updated {name}: {action}, response: {response.content}")
+        except Exception as e:
+            logging.error(f"Failed to update {name}: {e}")
 
 """
 input_boolean:

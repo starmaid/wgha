@@ -1,30 +1,67 @@
+
 # wg-ha
 
-```
-sudo nix-shell --run "python3 main.py"
-```
+WireGuard-HomeAssistant updater packaged as a Python package, with Nix and NixOS module support.
 
-```
-*/5 * * * * python3 /home/pi/test.py >> /home/pi/cron_out.txt
-0 */2 * * * rm -f /home/pi/cron_out.txt
-```
+## Usage
 
-### Build the package
-To build the package and get the `wgha` executable:
+### Build and Run Manually
 
 ```bash
-nix-build package.nix
-./result/bin/wgha /path/to/ha_token.key
+nix build .#wgha
+./result/bin/wgha --config /path/to/config.ini /path/to/ha_token.key
 ```
 
-### Add to system configuration (NixOS)
-To add this package to your NixOS system configuration, add the following to your `configuration.nix`:
+Or enter a dev shell:
+
+```bash
+nix develop
+wgha --config /path/to/config.ini /path/to/ha_token.key
+```
+
+### NixOS Module (systemd timer)
+
+Add this flake as an input to your `flake.nix`:
 
 ```nix
-{ pkgs, ... }:
+inputs.wgha.url = "/path/to/wg-ha"; # or github:youruser/wg-ha
+```
+
+Then in your `nixosConfiguration`:
+
+```nix
 {
-	environment.systemPackages = with pkgs; [
-		(import /path/to/wg-ha/package.nix {})
-	];
+	imports = [ inputs.wgha.nixosModules.wgha ];
+	services.wgha = {
+		enable = true;
+		tokenFile = "/etc/nixos/ha_token.key";
+		configText = ''
+			[section]
+			key = value
+		'';
+		schedule = "hourly"; # or any systemd OnCalendar value
+	};
 }
 ```
+
+This will:
+- Install the `wgha` package
+- Write `/etc/wgha/config.ini` with your config
+- Set up a systemd service and timer to run `wgha` on the schedule you choose
+
+#### Configuration Options
+
+- `services.wgha.enable` (bool): Enable the updater
+- `services.wgha.tokenFile` (path): Path to Home Assistant token file
+- `services.wgha.configText` (string): Contents of `config.ini` (will be written to `/etc/wgha/config.ini`)
+- `services.wgha.schedule` (string): systemd timer schedule (default: `hourly`)
+
+#### Example: Custom Schedule
+
+```nix
+services.wgha.schedule = "*/10 * * * *"; # every 10 minutes
+```
+
+---
+
+For more details, see the `flake.nix` and source code.
