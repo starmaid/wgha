@@ -36,7 +36,7 @@
               enable = mkEnableOption "WireGuard-HomeAssistant updater";
               schedule = mkOption {
                 type = types.str;
-                default = "hourly";
+                default = "*-*-* *:*/3:00";
                 description = "systemd timer schedule (OnCalendar value)";
               };
               baseurl = mkOption {
